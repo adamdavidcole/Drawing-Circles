@@ -1,7 +1,6 @@
 #pragma once
 
 #include "ofMain.h"
-#include "ofxMaxim.h"
 
 class ofApp : public ofBaseApp{
 	public:
@@ -29,20 +28,4 @@ class ofApp : public ofBaseApp{
         static const int rollingAvgSize = 75;
         float rollingAvgArr[rollingAvgSize] = { 0.0 };
         float rollingAvgArr2[rollingAvgSize] = { 0.0 };
-
-    
-    
-//        void audioRequested     (float * input, int bufferSize, int nChannels); /* output method */
-//        void audioReceived     (float * input, int bufferSize, int nChannels); /* input method */
-////
-//        int        initialBufferSize; /* buffer size */
-//        int        sampleRate;
-
-
-        /* stick you maximilian stuff below */
-//
-//        double wave,sample,outputs[2];
-//        ofxMaxiMix mymix;
-//        ofxMaxiOsc sine1;
-//        ofxMaxiSample beats,beat;
 };

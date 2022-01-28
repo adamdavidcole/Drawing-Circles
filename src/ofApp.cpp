@@ -28,36 +28,16 @@ void ofApp::setup(){
     
     beat.load("circles.mp3");
     beat.play();
-    
-    /* This is stuff you always need.*/
-    
-//    sampleRate             = 44100; /* Sampling Rate */
-//    initialBufferSize    = 512;    /* Buffer Size. you have to fill this buffer with sound*/
-//
-    
-    /* Now you can put anything you would normally put in maximilian's 'setup' method in here. */
-    
-//
-//    beat.load(ofToDataPath("beat2.wav"));
-//    beat.getLength();
-//
-//    beat.load(ofToDataPath("circles.mp3"));
-//    beat.getLength();
-    
-//    ofSoundStreamSetup(2,0,this, sampleRate, initialBufferSize, 4);/* Call this last ! */
 }
 
 //--------------------------------------------------------------
 void ofApp::update(){
     ofSoundUpdate();
-//
-//    beat.setVolume(1);
-//
-
+    
     // (5) grab the fft, and put in into a "smoothed" array,
     //        by taking maximums, as peaks and then smoothing downward
     float * val = ofSoundGetSpectrum(nBandsToGet);        // request 128 values for fft
-    for (int i = 0;i < nBandsToGet; i++){
+    for (int i = 0; i < nBandsToGet; i++) {
 
         // let the smoothed value sink to zero:
         fftSmoothed[i] *= 0.96f;
@@ -67,16 +47,14 @@ void ofApp::update(){
 
     }
 
-    for (int i = 0; i <= rollingAvgSize - 2; i++)
-    {
+    // Update rolling average of FFT bucket (beat)
+    for (int i = 0; i <= rollingAvgSize - 2; i++) {
         rollingAvgArr[i] = rollingAvgArr[i + 1]; //move all element to the right except last one
-        
-       
     }
-    
     float fftVal = CLAMP(fftSmoothed[1], 0, 1.0);
     rollingAvgArr[rollingAvgSize - 1] = fftVal;
     
+    // Update rolling average of FFT bucket (vocals/melody)
     float fftVal2Total = 0; //CLAMP(fftSmoothed[1], 0, 1.0);
     int rangeStart = 10;
     int rangeEnd = 18;
@@ -85,25 +63,16 @@ void ofApp::update(){
     }
     float fftVal2Avg = fftVal2Total / (rangeEnd - rangeStart);
     rollingAvgArr2[rollingAvgSize - 1] = fftVal2Avg;
-
-    
-//    logFloatArr(rollingAvgArr, rollingAvgSize);
 }
 
 //--------------------------------------------------------------
 void ofApp::draw(){
-    //    ofFill();
-    //    ofSetColor(30, 100);
-    //    ofDrawRectangle(0, 0, ofGetWidth(), ofGetHeight());
-    
-    
-    int segments = 2000;
+        int segments = 2000;
     int radius = 300;
     int shapeCount = 10;
     
     float gapX = ofMap(ofGetMouseX(), 0, ofGetWidth(), ofGetWidth() / 20, -ofGetWidth() / 20);
     float gapY = ofMap(ofGetMouseY(), 0, ofGetHeight(), ofGetHeight() / 20, -ofGetHeight() / 20);
-    //    float multY = ofMap(ofGetMouseY(), 0, ofGetHeight(), 495.0, 505.0);
     
     float shift = 0.75;
     
@@ -123,32 +92,39 @@ void ofApp::draw(){
     }
     float fftAvg = sum / rollingAvgSize;
     float fftAvg2 = sum2 / rollingAvgSize;
+    
+    
+    
+    float normalizedMouseX = (float)ofGetMouseX() / (float)ofGetWidth();
+    float normalizedMouseY = (float)ofGetMouseY() / (float)ofGetHeight();
+
+    log(to_string(normalizedMouseY));
 
     
-    
+    // repeat for each concentric shape
     for (int j = 0; j < shapeCount; j++) {
+        // ofset effects by shape count and time
         float multYShift = ofMap(j, 0, shapeCount, PI/10.0, 0);
         float multY = ofMap(sin((ofGetElapsedTimef()/9.0)+multYShift), -1.0, 1.0, 495.0, 505.0);
         
-        //        float red = 255 * ((float)(shapeCount - j) / (float)shapeCount);
-        float fftAvgClamped2 = CLAMP(fftAvg2, 0, 0.003);
-
+        // pulsating radius factor
         float rWave = 10 * sin((ofGetElapsedTimef() * 1.5) + multYShift);
-        
-        float rFacotr = ofMap(fftAvgClamped2, 0.0, 0.003, 0.0, 225.0);
-        if (ofGetElapsedTimef() < 9.500) rFacotr = 0;
-//        if (rFacotr < 30) rFacotr = 0;
-        log(to_string(rFacotr));
-
         float r = ofMap(j, 0.0, shapeCount, radius + rWave, - 20);
-        float red = ofMap(j, 0.0, shapeCount, 0.0, 160.0);
-        float green = ofMap(j, 0.0, shapeCount, 0.0, 1.0) + rFacotr;
-        float blue = ofMap(j, 0.0, shapeCount, 0.0, 1.0) + + rFacotr/2;
         
-        float maxAlpha = 100 * abs(sin((ofGetElapsedTimef()/10.0) + multYShift));
-       
+        // average FFT bands from center (vocals)
+        float fftAvgClamped2 = CLAMP(fftAvg2, 0, 0.003);
+        float colorFacotr = ofMap(fftAvgClamped2, 0.0, 0.003, 0.0, 225.0);
+        // dont start color modulation until 10 seconds in
+        if (ofGetElapsedTimef() < 9.500) colorFacotr = 0;
+        
+        // set colors
+        float red = ofMap(j, 0.0, shapeCount, 0.0, 160.0);
+        float green = ofMap(j, 0.0, shapeCount, 0.0, 1.0) + colorFacotr;
+        float blue = ofMap(j, 0.0, shapeCount, 0.0, 1.0) + + colorFacotr/2;
+        
+        // fft value from front of bands (beat)
         float fftAvgClamped = CLAMP(fftAvg, 0, 1.0);
-
+        // determine alpha of shape, more visible at center shape and back shapes
         float maxAlpha2 = ofMap(fftAvgClamped, 0, 1.0, 0, 150);
         float alphaShift = ofMap(j, 0, shapeCount, PI/3.0, 0);
         float alpha = ofMap(j, 0.0, shapeCount, -20, maxAlpha2);
@@ -159,52 +135,56 @@ void ofApp::draw(){
             float greenBackground = MAX(ofMap(alpha, 0, 100.0, 0, 5.0), 0.0);
             ofSetBackgroundColor(redBackground, greenBackground, 0);
         }
-        //
         
-        ofSetColor(red, green, blue, alpha);
-        
-        ofBeginShape();
-        
-        for (int i = 0; i < segments; i++) {
-            float theta = (2 * PI) * ((float)i / (float)segments);
-            //            log("Theta: " + to_string(theta));
-            
-            float x = xCenter - gapX * j +
-            cos(theta + PI / 2.0) * r *
-            (shift * cos(500 * theta + PI) + PI / 2.0);
-            float y = yCenter - gapY * j +
-            sin(theta + PI / 2.0) * r *
-            (sin(multY * theta + PI) + PI / 2.0);
-            //            log("x: " + to_string(x) + " ', y: " + to_string(y));
-            ofVertex(x, y);
+        // keep shapoe on screen when moving via mouse
+        float shapeCenterX = xCenter - gapX * j;
+        float shapeCenterY = yCenter - gapY * j + rWave;
+        float shiftFactor = 0.1;
+        if (normalizedMouseX > 0.5) {
+            float shift = ofMap(normalizedMouseX, 0.5, 1.0, 0.0, shiftFactor) * ofGetWidth();
+            shapeCenterX -= shift;
+        } else {
+            float shift = ofMap(normalizedMouseX, 0.5, 0.0, 0.0, shiftFactor) * ofGetWidth();
+            shapeCenterX += shift;
+        }
+        if (normalizedMouseY > 0.5) {
+            float shift = ofMap(normalizedMouseY, 0.5, 1.0, 0.0, shiftFactor) * ofGetHeight();
+            shapeCenterY -= shift;
+        } else {
+            float shift = ofMap(normalizedMouseY, 0.5, 0.0, 0.0, shiftFactor) * ofGetHeight();
+            shapeCenterY += shift;
         }
         
+        // draw shape
+        ofSetColor(red, green, blue, alpha);
+        ofBeginShape();
+        for (int i = 0; i < segments; i++) {
+            float theta = (2 * PI) * ((float)i / (float)segments);
+            float x = shapeCenterX +
+            cos(theta + PI / 2.0) * r *
+            (shift * cos(500 * theta + PI) + PI / 2.0);
+            float y = shapeCenterY +
+            sin(theta + PI / 2.0) * r *
+            (sin(multY * theta + PI) + PI / 2.0);
+            ofVertex(x, y);
+        }
         ofEndShape(true);
     }
     
     
-    //        log("Gap: " + to_string(gap));
-    
-    //        image.draw(ofGetWidth() / 2 - image.getWidth() / 2, ofGetHeight() / 2 - image.getHeight() / 2);
-    //        image.resize(100, 100);
-    
-//    ofSetColor(255, 255, 255,255);
-//    ofRect(600, 300, sample*150, sample*150); /* audio sigs go between -1 and 1. See?*/
-//    ofCircle(200, 300, wave*150);
-    ofEnableAlphaBlending();
-        ofSetColor(255,255,255,100);
-        ofDrawRectangle(100,ofGetHeight()-300,5*128,200);
-    ofDisableAlphaBlending();
-    
-    // draw the fft resutls:
-    ofSetColor(255,255,255,255);
-    
-    float width = (float)(5*128) / nBandsToGet;
-    for (int i = 0;i < nBandsToGet; i++){
-        // (we use negative height here, because we want to flip them
-        // because the top corner is 0,0)
-        ofDrawRectangle(100+i*width,ofGetHeight()-100,width,-(fftSmoothed[i] * 200));
-    }
+//    // see FFT visualizer
+//    ofEnableAlphaBlending();
+//        ofSetColor(255,255,255,100);
+//        ofDrawRectangle(100,ofGetHeight()-300,5*128,200);
+//    ofDisableAlphaBlending();
+//    // draw the fft resutls:
+//    ofSetColor(255,255,255,255);
+//    float width = (float)(5*128) / nBandsToGet;
+//    for (int i = 0;i < nBandsToGet; i++){
+//        // (we use negative height here, because we want to flip them
+//        // because the top corner is 0,0)
+//        ofDrawRectangle(100+i*width,ofGetHeight()-100,width,-(fftSmoothed[i] * 200));
+//    }
 }
 
 
