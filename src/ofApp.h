@@ -28,4 +28,6 @@ class ofApp : public ofBaseApp{
         static const int rollingAvgSize = 75;
         float rollingAvgArr[rollingAvgSize] = { 0.0 };
         float rollingAvgArr2[rollingAvgSize] = { 0.0 };
+    
+        bool hasMouseMoved = false;
 };

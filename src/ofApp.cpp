@@ -155,6 +155,12 @@ void ofApp::draw(){
             shapeCenterY += shift;
         }
         
+        // don't uncenter shape until use explicitly moves mouse
+        if (!hasMouseMoved) {
+            shapeCenterX = ofGetWidth() / 2;
+            shapeCenterY = ofGetHeight() / 2;
+        }
+        
         // draw shape
         ofSetColor(red, green, blue, alpha);
         ofBeginShape();
@@ -249,7 +255,7 @@ void ofApp::keyReleased(int key){
 
 //--------------------------------------------------------------
 void ofApp::mouseMoved(int x, int y){
-    
+    if (!hasMouseMoved) hasMouseMoved = true;
 }
 
 //--------------------------------------------------------------
