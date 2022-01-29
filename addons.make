@@ -1,1 +1,2 @@
-ofxMaxim
+ofxPoco
+ofxVideoRecorder

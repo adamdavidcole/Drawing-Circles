@@ -19,7 +19,62 @@ void logFloatArr(float arr[], int arrSize) {
 
 //--------------------------------------------------------------
 void ofApp::setup(){
-    //    ofBackground(255/20.0, 128/20.0, 1);
+    int width = 1024;
+    int height = 768;
+    sampleRate = 44100;
+    channels = 2;
+
+    ofSetFrameRate(60);
+    ofSetLogLevel(OF_LOG_VERBOSE);
+//    vidGrabber.setDesiredFrameRate(30);
+//    vidGrabber.initGrabber(640, 480);
+    vidRecorder.setFfmpegLocation("/opt/homebrew/Cellar/ffmpeg/4.4.1_5/bin/ffmpeg"); // use this is you have ffmpeg installed in your data folder
+
+    fileName = "testMovie";
+    fileExt = ".mov"; // ffmpeg uses the extension to determine the container type. run 'ffmpeg -formats' to see supported formats
+
+    // override the default codecs if you like
+    // run 'ffmpeg -codecs' to find out what your implementation supports (or -formats on some older versions)
+    vidRecorder.setVideoCodec("libx264");
+    vidRecorder.setVideoBitrate("100000k");
+    vidRecorder.setAudioCodec("mp3");
+    vidRecorder.setAudioBitrate("192k");
+
+    ofAddListener(vidRecorder.outputFileCompleteEvent, this, &ofApp::recordingComplete);
+//
+// NOTE: sound recording still doesn't work
+//    soundStream.listDevices();
+//    soundStream.setDeviceID(11);
+//    ofSoundStreamSettings settings;
+//    auto devices = soundStream.getMatchingDevices("Speakers");
+////    if(!devices.empty()){
+//        settings.setInDevice(devices[0]);
+////    }
+//    settings.sampleRate = sampleRate;
+//    settings.numOutputChannels = 2;
+//    settings.numInputChannels = 0;
+//    settings.bufferSize = 256;
+//    settings.setInListener(this);
+//    soundStream.setup(settings);
+
+
+//    ofSoundStreamSetup(this, 0, channels, sampleRate, 256, 4);
+//    soundStream.setOutput(this);
+
+
+    ofSetWindowShape(width, height);
+    bRecording = false;
+    
+//    ofFbo recordFbo;
+//    ofPixels recordPixels;
+    
+    recordFbo.allocate(width, height, GL_RGB);
+    recordFbo.begin();
+    ofClear(0, 0, 0, 255);
+    recordFbo.end();
+
+
+    
     ofBackground(12, 6, 0);
     ofSetBackgroundAuto(true);
     ofEnableBlendMode(OF_BLENDMODE_ADD);
@@ -33,6 +88,38 @@ void ofApp::setup(){
 //--------------------------------------------------------------
 void ofApp::update(){
     ofSoundUpdate();
+    
+    if (bRecording){
+//        imgScreenshot.grabScreen(0, 0, ofGetWidth(), ofGetHeight());
+//        recordPixels = imgScreenshot.getPixels();
+        recordFbo.readToPixels(recordPixels);
+
+        bool success = vidRecorder.addFrame(recordPixels);
+        if (!success) {
+            ofLogWarning("This frame was not added!");
+        } else {
+            log("Frame successfuly added");
+        }
+    }
+    
+//    vidGrabber.update();
+//    if(vidGrabber.isFrameNew() && bRecording){
+//        bool success = vidRecorder.addFrame(vidGrabber.getPixels());
+//        if (!success) {
+//            ofLogWarning("This frame was not added!");
+//        } else {
+//            log("Frame successfuly added");
+//        }
+//    }
+
+    // Check if the video recorder encountered any error while writing video frame or audio smaples.
+    if (vidRecorder.hasVideoError()) {
+        ofLogWarning("The video recorder failed to write some frames!");
+    }
+
+    if (vidRecorder.hasAudioError()) {
+        ofLogWarning("The video recorder failed to write some audio samples!");
+    }
     
     // (5) grab the fft, and put in into a "smoothed" array,
     //        by taking maximums, as peaks and then smoothing downward
@@ -67,7 +154,19 @@ void ofApp::update(){
 
 //--------------------------------------------------------------
 void ofApp::draw(){
-        int segments = 2000;
+    if (bRecording) {
+        recordFbo.begin();
+        ofClear(0, 0, 0, 255);
+    }
+
+    stringstream ss;
+    ss << "video queue size: " << vidRecorder.getVideoQueueSize() << endl
+    << "audio queue size: " << vidRecorder.getAudioQueueSize() << endl
+    << "FPS: " << ofGetFrameRate() << endl
+    << (bRecording?"pause":"start") << " recording: r" << endl
+    << (bRecording?"close current video file: c":"") << endl;
+    
+    int segments = 2000;
     int radius = 300;
     int shapeCount = 10;
     
@@ -97,9 +196,6 @@ void ofApp::draw(){
     
     float normalizedMouseX = (float)ofGetMouseX() / (float)ofGetWidth();
     float normalizedMouseY = (float)ofGetMouseY() / (float)ofGetHeight();
-
-    log(to_string(normalizedMouseY));
-
     
     // repeat for each concentric shape
     for (int j = 0; j < shapeCount; j++) {
@@ -191,6 +287,16 @@ void ofApp::draw(){
 //        // because the top corner is 0,0)
 //        ofDrawRectangle(100+i*width,ofGetHeight()-100,width,-(fftSmoothed[i] * 200));
 //    }
+//    imgScreenshot.grabScreen(0, 0, ofGetWidth(), ofGetHeight());
+//    if (ofRandom(0, 1.0) > 0.8) {
+//        string filename = "img_" + ofToString(imgCount, 3, '0') + ".png";
+//        imgScreenshot.save(filename);
+//        imgCount++;
+//    }
+    
+    if (bRecording) {
+        recordFbo.end();
+    }
 }
 
 
@@ -240,6 +346,23 @@ void ofApp::draw(){
 //}
 
 //--------------------------------------------------------------
+void ofApp::audioIn(float *input, int bufferSize, int nChannels){
+    if(bRecording)
+        vidRecorder.addAudioSamples(input, bufferSize, nChannels);
+}
+
+//--------------------------------------------------------------
+void ofApp::recordingComplete(ofxVideoRecorderOutputFileCompleteEventArgs& args){
+    cout << "The recoded video file is now complete." << endl;
+}
+
+//--------------------------------------------------------------
+void ofApp::exit(){
+    ofRemoveListener(vidRecorder.outputFileCompleteEvent, this, &ofApp::recordingComplete);
+    vidRecorder.close();
+}
+
+//--------------------------------------------------------------
 void ofApp::keyPressed(int key){
     if (key == '1') {
         ofDisableBlendMode();
@@ -250,7 +373,28 @@ void ofApp::keyPressed(int key){
 
 //--------------------------------------------------------------
 void ofApp::keyReleased(int key){
-    
+    if(key=='r'){
+        bRecording = !bRecording;
+        if(bRecording && !vidRecorder.isInitialized()) {
+//            vidRecorder.setup(fileName+ "_" + ofGetTimestampString()+fileExt, ofGetWidth(), ofGetHeight(), 30, sampleRate, channels);
+          vidRecorder.setup(fileName+ "_" + ofGetTimestampString()+fileExt, ofGetWidth(), ofGetHeight(), 30); // no audio
+//            vidRecorder.setup(fileName+ofGetTimestampString()+fileExt, 0,0,0, sampleRate, channels); // no video
+//          vidRecorder.setupCustomOutput(vidGrabber.getWidth(), vidGrabber.getHeight(), 30, sampleRate, channels, "-vcodec mpeg4 -b 1600k -acodec mp2 -ab 128k -f mpegts udp://localhost:1234"); // for custom ffmpeg output string (streaming, etc)
+
+            // Start recording
+            vidRecorder.start();
+        }
+        else if(!bRecording && vidRecorder.isInitialized()) {
+            vidRecorder.setPaused(true);
+        }
+        else if(bRecording && vidRecorder.isInitialized()) {
+            vidRecorder.setPaused(false);
+        }
+    }
+    if(key=='c'){
+        bRecording = false;
+        vidRecorder.close();
+    }
 }
 
 //--------------------------------------------------------------

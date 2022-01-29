@@ -26,3 +26,5 @@
 # be ignored               |.metadata          |# Android
 ########################   |local.properties   |.csettings
 .DS_Store
+*.mov
+*.zip
